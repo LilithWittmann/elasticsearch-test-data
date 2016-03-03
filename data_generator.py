@@ -1,4 +1,5 @@
 import abc
+from datetime import datetime
 import json
 import random
 import string
@@ -100,7 +101,7 @@ class StringGenerator(ValueGenerator):
         #TODO(lilith) implement more content types
 
 class IntegerGenerator(ValueGenerator):
-    """Generate an integer with a min and max length 
+    """Generate an integer with a min and max value 
        or choose an integer from a list of possible integers
 
     :Parameters:
@@ -162,23 +163,41 @@ class DateGenerator(ValueGenerator):
         super(DateGenerator, self).__init__()
         
     def generate(self, settings):
+        """Generate a date (delimited by min und max date)
+           or choose a date from a list of possible dates
+
+        :Parameters:
+            - `settings` - dict of options
+
+        :Returns:
+            - a datetime
+
+        :Options:
+            - `min` - min date (e.g iso date or -10d or now)
+            - `max` - max date (e.g. iso date or 100y or now)
+            - `options` - list of possible integers
+
+        """
 
         if "options" in settings:
             return self._choose_option(settings["options"])
-            
+
         if "min_date" in settings:
             min_date = settings["min_date"]
+        else:
+            min_date = "-100y"
 
         if "max_date" in settings:
-            min_date = settings["min_date"]
+            max_date = settings["max_date"]
+        else:
+            max_date = "now"
+
+
+        return self.faker.date_time_between(start_date=min_date, end_date=max_date)
 
 
 
-        fake.date_time_between(start_date="-30y", end_date="now")
-
-
-
-PARSER_MAPPING = {
+GENERATOR_MAPPING = {
 
     StringGenerator.value_type: StringGenerator,
     IntegerGenerator.value_type: IntegerGenerator,
@@ -197,14 +216,31 @@ class DataGenerator(object):
                 - format_definition - A dict or string with the format definition
         """
         if type(json) == str:
-            self.format_definition = json.loads(data)
+            self.format_definition = json.loads(format_definition)
         else:
-            self.format_definition = data
+            self.format_definition = format_definition
 
 
     def generate(self):
         """generate the example data"""
-        pass
+        
+
+        result_data = {}
+
+        # iterate over all dict fields
+        for key, value in self.format_definition.items():
+            
+            # get generatpr from generators list
+            if value["type"] is not None and value["type"] in GENERATOR_MAPPING:
+                generator = GENERATOR_MAPPING[value["type"]]
+                generator_instance = generator()
+                # generate the value
+                result_data[key] = generator_instance.generate(value)
+            else:
+                raise Exception("Generator '{}' not found".format(value["type"]))
+
+        return result_data
+
 
     def validate(self):
         """validate a data schema"""
