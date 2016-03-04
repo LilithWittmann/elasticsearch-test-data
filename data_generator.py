@@ -194,6 +194,45 @@ class DateGenerator(ValueGenerator):
 
 
         return self.faker.date_time_between(start_date=min_date, end_date=max_date)
+        
+
+class DictGenerator(ValueGenerator):
+
+    value_type = "dict"
+    allowed_attributes = []
+
+    def __init__(self):
+        super(DictGenerator, self).__init__()
+        
+    def generate(self, input_dict):
+        """Generate a dict (from a dict)
+
+        :Parameters:
+            - `input_dict` - dict
+
+        :Returns:
+            - a dict
+
+        """
+
+        result_data = {}
+
+        # iterate over all dict fields
+        for key, value in input_dict.items():
+            # get generatpr from generators list
+            if type(value) is dict and "type" in value and value["type"] is not None \
+                and value["type"] in GENERATOR_MAPPING:
+
+                generator = GENERATOR_MAPPING[value["type"]]
+                generator_instance = generator()
+                # generate the value
+                result_data[key] = generator_instance.generate(value)
+            elif type(value) is dict and "type" not in value:
+                result_data[key] = self.generate(value)
+            else:
+                raise Exception("Generator '{}' not found".format(value["type"]))
+
+        return result_data
 
 
 
@@ -202,9 +241,13 @@ GENERATOR_MAPPING = {
     StringGenerator.value_type: StringGenerator,
     IntegerGenerator.value_type: IntegerGenerator,
     FloatGenerator.value_type: FloatGenerator,
-    DateGenerator.value_type: DateGenerator
+    DateGenerator.value_type: DateGenerator,
+    DictGenerator.value_type: DictGenerator
 
 }
+
+
+
 
 
 class DataGenerator(object):
@@ -224,22 +267,10 @@ class DataGenerator(object):
     def generate(self):
         """generate the example data"""
         
+        dict_generator = DictGenerator()
+        return dict_generator.generate(self.format_definition)
 
-        result_data = {}
 
-        # iterate over all dict fields
-        for key, value in self.format_definition.items():
-            
-            # get generatpr from generators list
-            if value["type"] is not None and value["type"] in GENERATOR_MAPPING:
-                generator = GENERATOR_MAPPING[value["type"]]
-                generator_instance = generator()
-                # generate the value
-                result_data[key] = generator_instance.generate(value)
-            else:
-                raise Exception("Generator '{}' not found".format(value["type"]))
-
-        return result_data
 
 
     def validate(self):
